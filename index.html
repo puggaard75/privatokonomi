@@ -1,13 +1,740 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Økonomi Dashboard</title>
 
+  <script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.24.7/babel.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" crossorigin></script>
+
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg2: #1a1d27;
+      --bg3: #21253a;
+      --bg4: #2a2f45;
+      --border: rgba(255,255,255,.08);
+      --border2: rgba(255,255,255,.14);
+      --text: #e8eaf0;
+      --muted: #8b90a7;
+      --muted2: #5a5f78;
+      --accent: #6c63ff;
+      --accent2: #8078ff;
+      --green: #22c55e;
+      --red: #ef4444;
+      --r: 12px;
+      --r2: 8px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    a { color: var(--accent2); }
+
+    /* ── Component classes ────────────────────────────── */
+    .drop-zone {
+      background: var(--bg2);
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--r);
+      transition: border-color .2s, background .2s;
+    }
+    .drop-zone:hover, .drop-zone.drag {
+      border-color: var(--accent);
+      background: rgba(108,99,255,.06);
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid var(--border2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .tab-bar {
+      display: flex; gap: 2px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 3px;
+      width: fit-content;
+    }
+    .tab {
+      padding: 7px 18px; font-size: 13px;
+      border-radius: 6px; border: none;
+      background: transparent; color: var(--muted);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .tab.active { background: var(--bg4); color: var(--text); }
+
+    .metric {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.25rem;
+    }
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 1.25rem;
+    }
+
+    .tx-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .tx-table th {
+      text-align: left; padding: 7px 8px;
+      border-bottom: 1px solid var(--border2);
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .04em;
+    }
+    .tx-table td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text); }
+
+    .tb-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 14px; font-size: 13px;
+      border-radius: var(--r2);
+      border: 1px solid var(--border2);
+      background: var(--bg3); color: var(--muted);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+    }
+    .tb-btn:hover { background: var(--bg4); color: var(--text); }
+    .tb-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tb-btn.primary:hover { opacity: .88; }
+
+    /* ── Tailwind utility equivalents ─────────────────── */
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-1 { flex: 1 1 0%; }
+    .shrink-0 { flex-shrink: 0; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: 1fr; }
+    @media (min-width: 768px) {
+      .md\:grid-cols-4 { grid-template-columns: repeat(4,1fr); }
+      .md\:grid-cols-2 { grid-template-columns: repeat(2,1fr); }
+      .md\:flex-row    { flex-direction: row; }
+    }
+    @media (min-width: 1024px) {
+      .lg\:grid-cols-3 { grid-template-columns: repeat(3,1fr); }
+      .lg\:col-span-2  { grid-column: span 2; }
+    }
+
+    .gap-2 { gap: .5rem; }
+    .gap-3 { gap: .75rem; }
+    .gap-4 { gap: 1rem; }
+    .gap-6 { gap: 1.5rem; }
+    .gap-12 { gap: 3rem; }
+
+    .max-w-xl  { max-width: 36rem; }
+    .max-w-6xl { max-width: 72rem; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+
+    .p-6  { padding: 1.5rem; }
+    .p-12 { padding: 3rem; }
+    .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+    .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+
+    .mb-2 { margin-bottom: .5rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .mb-8 { margin-bottom: 2rem; }
+    .mt-1 { margin-top: .25rem; }
+
+    .w-2  { width: .5rem; }
+    .w-8  { width: 2rem; }
+    .w-full { width: 100%; }
+    .w-48 { width: 12rem; }
+    .h-2  { height: .5rem; }
+    .h-8  { height: 2rem; }
+    .h-48 { height: 12rem; }
+
+    .text-xs   { font-size: .75rem; }
+    .text-sm   { font-size: .875rem; }
+    .text-base { font-size: 1rem; }
+    .text-xl   { font-size: 1.25rem; }
+    .text-2xl  { font-size: 1.5rem; }
+    .text-4xl  { font-size: 2.25rem; }
+    .text-10px { font-size: 10px; }
+
+    .font-bold   { font-weight: 700; }
+    .font-medium { font-weight: 500; }
+    .uppercase   { text-transform: uppercase; }
+    .tracking-wider { letter-spacing: .05em; }
+    .leading-relaxed { line-height: 1.625; }
+    .whitespace-nowrap { white-space: nowrap; }
+    .italic { font-style: italic; }
+
+    .text-muted   { color: var(--muted); }
+    .text-muted2  { color: var(--muted2); }
+    .text-accent2 { color: var(--accent2); }
+    .text-green   { color: var(--green); }
+    .text-red     { color: var(--red); }
+
+    .bg-accent { background: var(--accent); }
+    .bg-red-err { background: rgba(239,68,68,.1); }
+    .border-red-err { border: 1px solid rgba(239,68,68,.3) !important; }
+    .text-red-300 { color: #fca5a5; }
+
+    .rounded-full { border-radius: 9999px; }
+    .rounded-r2   { border-radius: var(--r2); }
+
+    .overflow-x-auto { overflow-x: auto; }
+    .hidden { display: none; }
+    .block  { display: block; }
+    .cursor-pointer { cursor: pointer; }
+
+    .min-h-80vh { min-height: 80vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Chart.js UMD exposes Chart globally; sub-components live on Chart itself
+    const { Chart } = window;
+    const { ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } = Chart;
+    Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+
+    const cn = (...c) => c.flat().filter(Boolean).join(' ');
+
+    // ── Inline SVG icons (Lucide MIT) ──────────────────
+    const IconDownload = ({ size=16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    );
+    const IconRefreshCw = ({ size=16 }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    );
+    const IconX = ({ size=16, color='currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    );
+    const IconMessageSquare = ({ size=16, color='currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+    );
+    const IconSend = ({ size=16, color='currentColor' }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    );
+
+    // ── Doughnut chart (replaces react-chartjs-2) ──────
+    function DoughnutChart({ data, options }) {
+      const canvasRef = useRef(null);
+      const chartRef  = useRef(null);
+      useEffect(() => {
+        if (chartRef.current) chartRef.current.destroy();
+        chartRef.current = new Chart(canvasRef.current, { type: 'doughnut', data, options: options || {} });
+        return () => { if (chartRef.current) chartRef.current.destroy(); };
+      }, [data]);
+      return <canvas ref={canvasRef} />;
+    }
+
+    const COLOR_PALETTE = [
+      '#f59e0b','#22c55e','#f97316','#3b82f6','#ec4899','#a855f7',
+      '#06b6d4','#6366f1','#10b981','#ef4444','#14b8a6','#8b5cf6',
+      '#e11d48','#0ea5e9','#84cc16','#d946ef'
+    ];
+
+    // ── App ────────────────────────────────────────────
+    function App() {
+      const [apiKey, setApiKey]         = useState(localStorage.getItem('oekonomi_apikey') || '');
+      const [screen, setScreen]         = useState('upload');
+      const [loadingText, setLoadingText] = useState('');
+      const [result, setResult]         = useState(null);
+      const [activeTab, setActiveTab]   = useState('overview');
+      const [error, setError]           = useState(null);
+      const [isChatOpen, setIsChatOpen] = useState(false);
+      const [chatMessages, setChatMessages] = useState([]);
+      const [chatInput, setChatInput]   = useState('');
+      const [isThinking, setIsThinking] = useState(false);
+      const fileInputRef = useRef(null);
+
+      useEffect(() => {
+        if (apiKey) localStorage.setItem('oekonomi_apikey', apiKey);
+      }, [apiKey]);
+
+      const parseAmount = (s) => {
+        if (!s) return 0;
+        let v = s.trim().replace(/\s*[A-Z]{3}$/, '');
+        if (v.includes(',') && v.includes('.')) v = v.replace(/\./g,'').replace(',','.');
+        else if (v.includes(',')) v = v.replace(',','.');
+        v = v.replace(/[^\d\-.]/g,'');
+        const n = parseFloat(v);
+        return isNaN(n) ? 0 : n;
+      };
+
+      const parseDate = (s) => {
+        if (!s) return '';
+        s = s.trim();
+        const dmy = s.match(/^(\d{1,2})[-\/\.](\d{1,2})[-\/\.](\d{4})$/);
+        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+        if (s.match(/^\d{4}-\d{2}-\d{2}/)) return s.substring(0,10);
+        return s;
+      };
+
+      const isDateLike = (s) => {
+        if (!s) return false;
+        s = s.trim().replace(/^\uFEFF/,'');
+        return /^\d{1,2}[-\/\.]\d{1,2}[-\/\.](\d{2}|\d{4})$/.test(s) || /^\d{4}-\d{2}-\d{2}/.test(s);
+      };
+
+      const readFile = (file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => processCSV(e.target.result, file.name);
+        reader.readAsText(file, 'UTF-8');
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (file) readFile(file);
+      };
+
+      const processCSV = async (text, fname) => {
+        if (!apiKey) { setError('Indtast venligst din Anthropic API-nøgle.'); return; }
+        setError(null);
+        setScreen('loading');
+        setLoadingText('Analyserer transaktioner...');
+        try {
+          const lines = text.replace(/^\uFEFF/,'').split(/\r?\n/).filter(l => l.trim());
+          const delim = [';','\t',','].find(d => lines[0].split(d).length >= 2) || ';';
+
+          const splitLine = (line) => {
+            const cells=[]; let cur=''; let inQ=false;
+            for (let i=0; i<line.length; i++) {
+              const ch = line[i];
+              if (ch==='"') inQ=!inQ;
+              else if (ch===delim && !inQ) { cells.push(cur.trim().replace(/^"|"$/g,'')); cur=''; }
+              else cur+=ch;
+            }
+            cells.push(cur.trim().replace(/^"|"$/g,''));
+            return cells;
+          };
+
+          const rows = lines.map(splitLine);
+          const hasHeader = !isDateLike(rows[0][0]);
+          let normalized = [];
+
+          if (hasHeader) {
+            const headers = rows[0].map(h => h.toLowerCase().trim());
+            const dK=['dato','date','bookingdate','posteringsdato'];
+            const tK=['tekst','beskrivelse','description','text'];
+            const aK=['beløb','belob','amount'];
+            const dk=headers.findIndex(h=>dK.some(k=>h.includes(k)));
+            const tk=headers.findIndex(h=>tK.some(k=>h.includes(k)));
+            const ak=headers.findIndex(h=>aK.some(k=>h.includes(k)));
+            normalized=rows.slice(1).map(r=>({
+              date:parseDate(r[dk]), description:r[tk], amount:parseAmount(r[ak])
+            })).filter(r=>r.date&&r.description&&r.amount!==0);
+          } else {
+            normalized=rows.map(r=>({
+              date:parseDate(r[0]), description:r[1], amount:parseAmount(r[2])
+            })).filter(r=>r.date&&r.description&&r.amount!==0);
+          }
+
+          await analyzeWithAI(normalized, fname);
+        } catch(err) {
+          setError(err.message);
+          setScreen('upload');
+        }
+      };
+
+      const analyzeWithAI = async (transactions, fname) => {
+        setLoadingText('Analyserer mønstre med AI...');
+        try {
+          const sample = transactions.slice(0,100);
+          const txLines = sample.map((t,i)=>`${i}|${t.date}|${t.description}|${Math.round(t.amount)}`).join('\n');
+
+          const prompt = `Analyser disse banktransaktioner og returner JSON med kategorier, faste udgifter, top butikker og råd.
+Transaktioner:
+${txLines}
+
+Returner KUN JSON i dette format:
+{
+  "categories": [{"name": "Navn", "amount": 123}],
+  "fixedExpenses": [{"name": "Navn", "amount": 123, "frequency": "Månedlig"}],
+  "topStores": [{"name": "Navn", "amount": 123, "count": 5}],
+  "advice": [{"text": "Råd", "category": "Kategori", "keywords": ["ord"]}],
+  "summary": "Tekst",
+  "monthlyTrend": [{"month": "2024-01", "income": 100, "expenses": 80}],
+  "txCategories": {"0": "Kategori"}
+}`;
+
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({
+              model: 'claude-sonnet-4-5',
+              max_tokens: 4000,
+              messages: [{ role: 'user', content: prompt }]
+            })
+          });
+
+          if (!resp.ok) {
+            const ed = await resp.json().catch(()=>({}));
+            throw new Error(`AI Analyse fejlede: ${(ed.error && ed.error.message) || resp.statusText}`);
+          }
+
+          const data = await resp.json();
+          const raw  = data.content[0].text;
+          const s    = raw.indexOf('{');
+          const e    = raw.lastIndexOf('}');
+          if (s===-1||e===-1) throw new Error('AI returnerede ikke gyldig JSON-data. Prøv igen.');
+
+          let stats;
+          try { stats = JSON.parse(raw.substring(s, e+1)); }
+          catch(_) { throw new Error('Kunne ikke læse data fra AI. Svaret var formateret forkert.'); }
+
+          const catColors = {};
+          stats.categories.forEach((c,i) => { catColors[c.name] = COLOR_PALETTE[i % COLOR_PALETTE.length]; });
+
+          setResult({ ...stats, _allTx: transactions, _fname: fname, _catColors: catColors });
+          setScreen('dashboard');
+        } catch(err) {
+          setError(err.message);
+          setScreen('upload');
+        }
+      };
+
+      const fmtKr = (n) => Math.abs(Math.round(n)).toLocaleString('da-DK') + ' kr.';
+
+      // ── Upload screen ──────────────────────────────
+      if (screen === 'upload') return (
+        <div className="max-w-xl mx-auto py-12 px-6 flex flex-col gap-6">
+          <div className="text-2xl font-bold">Økonomi <span style={{color:'var(--accent2)'}}>Dashboard</span></div>
+
+          <div className="card flex flex-col gap-4">
+            <label className="text-10px text-muted uppercase tracking-wider mb-2 block">Anthropic API-nøgle</label>
+            <input
+              type="password"
+              style={{width:'100%',background:'var(--bg3)',border:'1px solid var(--border2)',
+                borderRadius:'var(--r2)',padding:'.5rem .75rem',fontSize:'.875rem',
+                color:'var(--text)',outline:'none'}}
+              placeholder="sk-ant-..."
+              value={apiKey}
+              onChange={e=>setApiKey(e.target.value)}
+              onFocus={e=>e.target.style.borderColor='var(--accent)'}
+              onBlur={e=>e.target.style.borderColor='var(--border2)'}
+            />
+            <small style={{fontSize:'10px',color:'var(--muted2)',marginTop:'.25rem',display:'block'}}>
+              Din nøgle sendes direkte til Anthropic. Hent den på{' '}
+              <a href="https://console.anthropic.com" target="_blank" rel="noreferrer">console.anthropic.com</a>
+            </small>
+          </div>
+
+          <div
+            className="drop-zone p-12 cursor-pointer"
+            style={{textAlign:'center'}}
+            onClick={()=>fileInputRef.current&&fileInputRef.current.click()}
+            onDragOver={e=>{e.preventDefault();e.currentTarget.classList.add('drag');}}
+            onDragLeave={e=>e.currentTarget.classList.remove('drag')}
+            onDrop={e=>{e.preventDefault();e.currentTarget.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)readFile(f);}}
+          >
+            <div className="text-4xl mb-4">📂</div>
+            <h2 className="text-base font-medium mb-2">Træk dit kontoudtog hertil</h2>
+            <p className="text-sm text-muted">eller klik for at vælge CSV-fil</p>
+            <input type="file" ref={fileInputRef} style={{display:'none'}} accept=".csv,.txt" onChange={handleFileUpload}/>
+          </div>
+
+          {error && (
+            <div className="bg-red-err border-red-err rounded-r2 p-6" style={{padding:'.75rem 1rem',fontSize:'.875rem',color:'#fca5a5'}}>
+              {error}
+            </div>
+          )}
+        </div>
+      );
+
+      // ── Loading screen ─────────────────────────────
+      if (screen === 'loading') return (
+        <div className="flex flex-col items-center justify-center min-h-80vh gap-4">
+          <div className="spinner"/>
+          <p className="text-muted">{loadingText}</p>
+        </div>
+      );
+
+      if (!result) return null;
+
+      const income   = result._allTx.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+      const expenses = Math.abs(result._allTx.filter(t=>t.amount<0).reduce((s,t)=>s+t.amount,0));
+      const balance  = income - expenses;
+
+      const donutData = {
+        labels: result.categories.map(c=>c.name),
+        datasets: [{
+          data: result.categories.map(c=>c.amount),
+          backgroundColor: result.categories.map(c=>result._catColors[c.name]||'#64748b'),
+          borderWidth: 0, hoverOffset: 10
+        }]
+      };
+
+      // ── Dashboard ──────────────────────────────────
+      return (
+        <div className="max-w-6xl mx-auto p-6">
+          <header className="flex items-center justify-between mb-8 flex-wrap gap-4">
+            <div>
+              <h1 className="text-xl font-bold">Økonomi Dashboard</h1>
+              <p className="text-10px text-muted mt-1">{result._fname}</p>
+            </div>
+            <div className="flex gap-2">
+              <button className="tb-btn" onClick={()=>window.print()}>
+                <IconDownload size={14}/> PDF
+              </button>
+              <button className="tb-btn primary" onClick={()=>{setResult(null);setError(null);setChatMessages([]);setScreen('upload');}}>
+                <IconRefreshCw size={14}/> Ny analyse
+              </button>
+            </div>
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {[
+              ['Indkomst', fmtKr(income), 'var(--green)'],
+              ['Forbrug',  fmtKr(expenses), 'var(--red)'],
+              ['Balance',  fmtKr(balance), balance>=0?'var(--green)':'var(--red)'],
+              ['Opsparingsrate', (income>0?Math.round((balance/income)*100):0)+'%', 'var(--accent2)'],
+            ].map(([label, val, color]) => (
+              <div key={label} className="metric">
+                <div className="text-10px text-muted uppercase mb-2">{label}</div>
+                <div className="text-2xl font-bold" style={{color}}>{val}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="tab-bar mb-6">
+            {[['overview','Oversigt'],['transactions','Transaktioner'],['advice','AI-råd']].map(([id,lbl])=>(
+              <button key={id} className={cn('tab',activeTab===id&&'active')} onClick={()=>setActiveTab(id)}>{lbl}</button>
+            ))}
+          </div>
+
+          {activeTab==='overview' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="card lg:col-span-2">
+                <h3 className="text-sm font-bold mb-6">Kategorifordeling</h3>
+                <div className="flex flex-col md:flex-row items-center gap-12">
+                  <div className="w-48 h-48">
+                    <DoughnutChart data={donutData} options={{plugins:{legend:{display:false}}}}/>
+                  </div>
+                  <div className="flex-1 w-full flex flex-col gap-2">
+                    {result.categories.map(c=>(
+                      <div key={c.name} className="flex items-center gap-3 text-xs">
+                        <div className="w-2 h-2 rounded-full" style={{background:result._catColors[c.name]}}/>
+                        <span className="flex-1 text-muted">{c.name}</span>
+                        <span className="font-bold">{fmtKr(c.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 className="text-sm font-bold mb-4">Top Butikker</h3>
+                <div className="flex flex-col gap-3">
+                  {result.topStores.slice(0,8).map((s,i)=>(
+                    <div key={i} className="flex items-center justify-between" style={{padding:'.5rem 0',borderBottom:i<Math.min(result.topStores.length,8)-1?'1px solid var(--border)':'none'}}>
+                      <div className="text-xs">
+                        <div className="font-medium">{s.name}</div>
+                        <div className="text-10px" style={{color:'var(--muted2)'}}>{s.count} køb</div>
+                      </div>
+                      <div className="text-xs font-bold" style={{color:'var(--red)'}}>{fmtKr(s.amount)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab==='transactions' && (
+            <div className="card overflow-x-auto">
+              <table className="tx-table">
+                <thead><tr><th>Dato</th><th>Beskrivelse</th><th>Kategori</th><th style={{textAlign:'right'}}>Beløb</th></tr></thead>
+                <tbody>
+                  {result._allTx.slice(0,100).map((t,i)=>(
+                    <tr key={i}>
+                      <td className="text-muted whitespace-nowrap">{t.date}</td>
+                      <td>{t.description}</td>
+                      <td>
+                        <span style={{
+                          fontSize:'10px',padding:'2px 8px',borderRadius:'9999px',
+                          background:(result._catColors[result.txCategories&&result.txCategories[i]]||'#64748b')+'22',
+                          color:result._catColors[result.txCategories&&result.txCategories[i]]||'#64748b'
+                        }}>
+                          {(result.txCategories&&result.txCategories[i])||'Andet'}
+                        </span>
+                      </td>
+                      <td className="font-bold" style={{textAlign:'right',color:t.amount>=0?'var(--green)':'var(--red)'}}>
+                        {t.amount>=0?'+':''}{fmtKr(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab==='advice' && (
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {result.advice.map((a,i)=>(
+                  <div key={i} className="card flex gap-4 items-start">
+                    <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-bold shrink-0" style={{color:'#fff'}}>{i+1}</div>
+                    <p className="text-sm leading-relaxed">{a.text}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="card">
+                <h3 className="text-sm font-bold mb-4">Opsummering</h3>
+                <p className="text-sm text-muted leading-relaxed">{result.summary}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Chat FAB */}
+          <button
+            style={{position:'fixed',bottom:'1.5rem',right:'1.5rem',width:'3rem',height:'3rem',
+              borderRadius:'9999px',background:'var(--accent)',border:'none',cursor:'pointer',
+              display:'flex',alignItems:'center',justifyContent:'center',
+              boxShadow:'0 10px 15px rgba(0,0,0,.4)',transition:'transform .15s',zIndex:50}}
+            onMouseEnter={e=>e.currentTarget.style.transform='scale(1.1)'}
+            onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}
+            onClick={()=>setIsChatOpen(!isChatOpen)}
+          >
+            {isChatOpen ? <IconX color="white"/> : <IconMessageSquare color="white"/>}
+          </button>
+
+          {isChatOpen && (
+            <div style={{position:'fixed',bottom:'5rem',right:'1.5rem',width:'20rem',height:'24rem',
+              background:'var(--bg2)',border:'1px solid var(--border2)',borderRadius:'var(--r)',
+              boxShadow:'0 25px 50px rgba(0,0,0,.5)',display:'flex',flexDirection:'column',
+              zIndex:50,overflow:'hidden'}}>
+              <div style={{padding:'.75rem',borderBottom:'1px solid var(--border)',display:'flex',
+                justifyContent:'space-between',alignItems:'center',background:'var(--bg3)'}}>
+                <span className="text-xs font-bold">Økonomi Assistent</span>
+                <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--muted)',display:'flex'}} onClick={()=>setIsChatOpen(false)}>
+                  <IconX size={14}/>
+                </button>
+              </div>
+              <div style={{flex:1,overflowY:'auto',padding:'1rem',display:'flex',flexDirection:'column',gap:'.75rem'}}>
+                {chatMessages.length===0 && (
+                  <div style={{background:'var(--bg3)',padding:'.75rem',borderRadius:'.5rem',fontSize:'12px',color:'var(--muted)',fontStyle:'italic'}}>
+                    Hej! Spørg mig om dit forbrug, f.eks. "Hvor meget har jeg brugt på mad?"
+                  </div>
+                )}
+                {chatMessages.map((m,i)=>(
+                  <div key={i} style={{
+                    maxWidth:'85%',padding:'.5rem .75rem',borderRadius:'.5rem',
+                    fontSize:'12px',lineHeight:'1.625',
+                    background:m.role==='user'?'var(--accent)':'var(--bg3)',
+                    color:m.role==='user'?'#fff':'var(--text)',
+                    alignSelf:m.role==='user'?'flex-end':'flex-start'
+                  }}>{m.text}</div>
+                ))}
+                {isThinking && <div style={{fontSize:'10px',color:'var(--muted)',fontStyle:'italic'}}>Tænker...</div>}
+              </div>
+              <div style={{padding:'.75rem',borderTop:'1px solid var(--border)',display:'flex',gap:'.5rem'}}>
+                <input
+                  style={{flex:1,background:'var(--bg3)',border:'1px solid var(--border)',
+                    borderRadius:'9999px',padding:'.375rem .75rem',fontSize:'12px',
+                    color:'var(--text)',outline:'none'}}
+                  placeholder="Skriv her..."
+                  value={chatInput}
+                  onChange={e=>setChatInput(e.target.value)}
+                  onKeyDown={e=>e.key==='Enter'&&sendChatMessage()}
+                  onFocus={e=>e.target.style.borderColor='var(--accent)'}
+                  onBlur={e=>e.target.style.borderColor='var(--border)'}
+                />
+                <button
+                  style={{width:'2rem',height:'2rem',borderRadius:'9999px',
+                    background:'var(--accent)',border:'none',cursor:'pointer',
+                    display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}
+                  onClick={sendChatMessage}
+                >
+                  <IconSend size={12} color="white"/>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+
+      async function sendChatMessage() {
+        if (!chatInput.trim()||isThinking) return;
+        const msg = chatInput;
+        setChatInput('');
+        setChatMessages(prev=>[...prev,{role:'user',text:msg}]);
+        setIsThinking(true);
+        try {
+          const prompt = `Du er en dansk økonomi-assistent. Her er data om brugerens økonomi:
+Indkomst: ${fmtKr(income)}
+Forbrug: ${fmtKr(expenses)}
+Kategorier: ${result.categories.map(c=>c.name+': '+fmtKr(c.amount)).join(', ')}
+
+Svar kort og præcist på dansk på dette spørgsmål: ${msg}`;
+
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method:'POST',
+            headers:{
+              'Content-Type':'application/json',
+              'x-api-key':apiKey,
+              'anthropic-version':'2023-06-01',
+              'anthropic-dangerous-direct-browser-access':'true'
+            },
+            body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:500,messages:[{role:'user',content:prompt}]})
+          });
+          const data = await resp.json();
+          setChatMessages(prev=>[...prev,{role:'ai',text:data.content[0].text}]);
+        } catch(_) {
+          setChatMessages(prev=>[...prev,{role:'ai',text:'Beklager, jeg kunne ikke svare lige nu.'}]);
+        } finally {
+          setIsThinking(false);
+        }
+      }
+    }
+
+    (function tryMount() {
+      if (window.__appMounted) return;
+      var rootEl = document.getElementById('root');
+      if (!rootEl) { setTimeout(tryMount, 20); return; }
+      window.__appMounted = true;
+      ReactDOM.createRoot(rootEl).render(
+        <React.StrictMode><App/></React.StrictMode>
+      );
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0f1117;
+  --color-bg2: #1a1d27;
+  --color-bg3: #21253a;
+  --color-bg4: #2a2f45;
+  --color-accent: #6c63ff;
+  --color-accent2: #8078ff;
+  --radius-r: 12px;
+  --radius-r2: 8px;
+}
+
+:root {
+  --bg: #0f1117;
+  --bg2: #1a1d27;
+  --bg3: #21253a;
+  --bg4: #2a2f45;
+  --border: rgba(255, 255, 255, 0.08);
+  --border2: rgba(255, 255, 255, 0.14);
+  --text: #e8eaf0;
+  --muted: #8b90a7;
+  --muted2: #5a5f78;
+  --accent: #6c63ff;
+  --accent2: #8078ff;
+  --green: #22c55e;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --blue: #3b82f6;
+  --r: 12px;
+  --r2: 8px;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 14px;
+}
+
+/* Custom styles from original HTML */
+.drop-zone {
+  background: var(--bg2);
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--r);
+  transition: border-color .2s, background .2s;
+}
+
+.drop-zone:hover, .drop-zone.drag {
+  border-color: var(--accent);
+  background: rgba(108, 99, 255, .06);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r2);
+  padding: 3px;
+  width: fit-content;
+}
+
+.tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.tab.active {
+  background: var(--bg4);
+  color: var(--text);
+}
+
+.metric {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.25rem;
+}
+
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 1.25rem;
+}
+
+.tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tx-table th {
+  text-align: left;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border2);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.tx-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+  width: 100%;
+  max-width: 540px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}

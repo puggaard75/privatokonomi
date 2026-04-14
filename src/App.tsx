@@ -213,10 +213,30 @@ export default function App() {
         })
       });
 
-      if (!response.ok) throw new Error('AI Analyse fejlede');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`AI Analyse fejlede: ${errorData.error?.message || response.statusText}`);
+      }
+      
       const data = await response.json();
-      const rawJson = data.content[0].text.replace(/```json|```/g, '').trim();
-      const stats = JSON.parse(rawJson);
+      const rawText = data.content[0].text;
+      
+      // Robust JSON extraction: find the first '{' and last '}'
+      const jsonStart = rawText.indexOf('{');
+      const jsonEnd = rawText.lastIndexOf('}');
+      
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error('AI returnerede ikke gyldig JSON-data. Prøv igen.');
+      }
+      
+      const rawJson = rawText.substring(jsonStart, jsonEnd + 1);
+      let stats;
+      try {
+        stats = JSON.parse(rawJson);
+      } catch (e) {
+        console.error('JSON Parse fejl:', rawJson);
+        throw new Error('Kunne ikke læse data fra AI. Svaret var formateret forkert.');
+      }
 
       const finalResult: AnalysisResult = {
         ...stats,

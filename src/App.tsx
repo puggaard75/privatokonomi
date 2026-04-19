@@ -71,6 +71,7 @@ export default function App() {
   const [isThinking, setIsThinking] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const donutRef = useRef<any>(null);
 
   useEffect(() => {
     if (apiKey) localStorage.setItem('oekonomi_apikey', apiKey);
@@ -443,15 +444,23 @@ export default function App() {
           <div className="card lg:col-span-2">
             <h3 className="text-sm font-bold mb-6">Kategorifordeling</h3>
             <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="w-48 h-48 cursor-pointer">
+              <div
+                className="w-48 h-48 cursor-pointer"
+                onClick={(event) => {
+                  if (!donutRef.current) return;
+                  const elements = donutRef.current.getElementsAtEventForMode(
+                    event.nativeEvent,
+                    'nearest',
+                    { intersect: true },
+                    false
+                  );
+                  if (elements.length > 0) setCategoryModal(result.categories[elements[0].index].name);
+                }}
+              >
                 <Doughnut
+                  ref={donutRef}
                   data={donutData}
-                  options={{
-                    plugins: { legend: { display: false } },
-                    onClick: (_e, elements) => {
-                      if (elements[0]) setCategoryModal(result.categories[elements[0].index].name);
-                    }
-                  }}
+                  options={{ plugins: { legend: { display: false } } }}
                 />
               </div>
               <div className="flex-1 w-full flex flex-col gap-2">

@@ -62,6 +62,8 @@ export default function App() {
   const [activeMonth, setActiveMonth] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [categoryModal, setCategoryModal] = useState<string | null>(null);
+  const [modalSort, setModalSort] = useState<'date' | 'amount' | 'store'>('amount');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -391,12 +393,24 @@ export default function App() {
           <div className="card lg:col-span-2">
             <h3 className="text-sm font-bold mb-6">Kategorifordeling</h3>
             <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="w-48 h-48">
-                <Doughnut data={donutData} options={{ plugins: { legend: { display: false } } }} />
+              <div className="w-48 h-48 cursor-pointer">
+                <Doughnut
+                  data={donutData}
+                  options={{
+                    plugins: { legend: { display: false } },
+                    onClick: (_e, elements) => {
+                      if (elements[0]) setCategoryModal(result.categories[elements[0].index].name);
+                    }
+                  }}
+                />
               </div>
               <div className="flex-1 w-full flex flex-col gap-2">
                 {result.categories.map(c => (
-                  <div key={c.name} className="flex items-center gap-3 text-xs">
+                  <div
+                    key={c.name}
+                    className="flex items-center gap-3 text-xs cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors"
+                    onClick={() => setCategoryModal(c.name)}
+                  >
                     <div className="w-2 h-2 rounded-full" style={{ background: result._catColors[c.name] }} />
                     <span className="flex-1 text-muted">{c.name}</span>
                     <span className="font-bold">{fmtKr(c.amount)}</span>
@@ -504,6 +518,79 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Kategori-modal */}
+      {categoryModal && (() => {
+        const color = result._catColors[categoryModal] || '#64748b';
+        const catTx = result._allTx
+          .map((t, i) => ({ ...t, idx: i }))
+          .filter((_, i) => (result.txCategories[i] || 'Andet') === categoryModal && result._allTx[i].amount < 0);
+
+        const sorted = [...catTx].sort((a, b) => {
+          if (modalSort === 'date') return b.date.localeCompare(a.date);
+          if (modalSort === 'amount') return a.amount - b.amount;
+          return a.description.localeCompare(b.description);
+        });
+
+        const byStore = catTx.reduce((acc, t) => {
+          acc[t.description] = (acc[t.description] || 0) + Math.abs(t.amount);
+          return acc;
+        }, {} as Record<string, number>);
+        const topStores = (Object.entries(byStore) as [string, number][]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const total = catTx.reduce((s, t) => s + t.amount, 0);
+
+        return (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setCategoryModal(null)}>
+            <div className="bg-bg2 border border-border2 rounded-r shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-border">
+                <div className="w-3 h-3 rounded-full" style={{ background: color }} />
+                <h2 className="font-bold flex-1">{categoryModal}</h2>
+                <span className="text-sm font-bold text-red">{fmtKr(Math.abs(total))}</span>
+                <button onClick={() => setCategoryModal(null)} className="ml-4 text-muted hover:text-text"><X size={16} /></button>
+              </div>
+
+              <div className="px-5 py-3 border-b border-border flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {topStores.map(([name, amt]) => (
+                    <div key={name} className="text-[11px] px-2.5 py-1 rounded-full bg-bg3 border border-border flex gap-2">
+                      <span className="text-muted">{name}</span>
+                      <span className="font-bold">{fmtKr(amt as number)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <span className="text-[10px] text-muted uppercase">Sortér:</span>
+                  {(['amount', 'date', 'store'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setModalSort(s)}
+                      className={cn("text-[11px] px-2.5 py-1 rounded-full border transition-colors",
+                        modalSort === s ? "border-accent text-accent bg-accent/10" : "border-border text-muted")}
+                    >
+                      {s === 'amount' ? 'Beløb' : s === 'date' ? 'Dato' : 'Butik'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                <table className="tx-table">
+                  <thead><tr><th>Dato</th><th>Beskrivelse</th><th className="text-right">Beløb</th></tr></thead>
+                  <tbody>
+                    {sorted.map(t => (
+                      <tr key={t.idx}>
+                        <td className="text-muted whitespace-nowrap">{t.date}</td>
+                        <td>{t.description}</td>
+                        <td className="text-right font-bold text-red">{fmtKr(Math.abs(t.amount))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* AI Chat FAB */}
       <button 

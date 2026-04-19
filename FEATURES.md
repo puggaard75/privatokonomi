@@ -16,7 +16,7 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 - BOM-stripping for UTF-8 filer fra danske banker
 
 ### AI-analyse (Claude)
-- Sender op til 100 transaktioner til Claude (claude-3-5-sonnet)
+- Sender alle transaktioner til Claude (claude-sonnet-4-5)
 - Kategoriserer transaktioner i grupper (Dagligvarer, Transport, Bolig osv.)
 - Identificerer faste udgifter og abonnementer
 - Finder top-butikker/forretninger efter beløb
@@ -26,13 +26,14 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 
 ### Dashboard — Oversigt
 - KPI-kort: Indkomst, Forbrug, Balance, Opsparingsrate
-- Doughnut-chart over kategorifordeling
+- Doughnut-chart over kategorifordeling — klikbart
 - Top 8 butikker med antal køb og samlet beløb
+- Kategori-popup: klik på diagram eller kategori åbner modal med posteringer filtreret på kategori, top-butikker, sortering på beløb/dato/butik
 
 ### Dashboard — Transaktioner
-- Tabel med de 100 første transaktioner
-- Viser dato, beskrivelse, AI-kategori og beløb
-- Farvekodet kategorimærke pr. transaktion
+- Posteringer grupperet per kategori, sorteret efter beløb
+- Foldbare grupper — klik på kategori for at se posteringerne
+- Alle transaktioner vises (ingen 100-grænse)
 
 ### Dashboard — AI-råd
 - Individuelle sparetips baseret på forbrugsmønster

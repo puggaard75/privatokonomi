@@ -75,6 +75,18 @@ export default function App() {
     if (apiKey) localStorage.setItem('oekonomi_apikey', apiKey);
   }, [apiKey]);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('oekonomi_result');
+    if (saved) {
+      try {
+        setResult(JSON.parse(saved));
+        setScreen('dashboard');
+      } catch {
+        localStorage.removeItem('oekonomi_result');
+      }
+    }
+  }, []);
+
   // Parsing & Analysis Logic
   const parseAmount = (s: string) => {
     if (!s) return 0;
@@ -252,6 +264,7 @@ export default function App() {
         finalResult._catColors[c.name] = COLOR_PALETTE[i % COLOR_PALETTE.length];
       });
 
+      localStorage.setItem('oekonomi_result', JSON.stringify(finalResult));
       setResult(finalResult);
       setScreen('dashboard');
     } catch (err: any) {
@@ -299,6 +312,18 @@ export default function App() {
           />
         </div>
 
+        {localStorage.getItem('oekonomi_result') && (
+          <button
+            className="tb-btn primary w-full py-3 flex items-center justify-center gap-2"
+            onClick={() => {
+              const saved = localStorage.getItem('oekonomi_result');
+              if (saved) { setResult(JSON.parse(saved)); setScreen('dashboard'); }
+            }}
+          >
+            <ChevronRight size={14} /> Fortsæt med seneste analyse
+          </button>
+        )}
+
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-r2 p-4 text-sm text-red-300">
             {error}
@@ -344,7 +369,7 @@ export default function App() {
           <button className="tb-btn flex items-center gap-2" onClick={() => window.print()}>
             <Download size={14} /> PDF
           </button>
-          <button className="tb-btn primary" onClick={() => setScreen('upload')}>
+          <button className="tb-btn primary" onClick={() => { localStorage.removeItem('oekonomi_result'); setResult(null); setScreen('upload'); }}>
             <RefreshCw size={14} /> Ny analyse
           </button>
         </div>

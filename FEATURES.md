@@ -39,6 +39,12 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 - Individuelle sparetips baseret på forbrugsmønster
 - Overordnet opsummering af økonomien
 
+### Gem seneste analyse
+- Analyseresultatet gemmes automatisk i `localStorage` efter hver analyse
+- Ved næste besøg åbner appen direkte i dashboardet med det gemte resultat
+- "Fortsæt med seneste analyse"-knap på upload-skærmen hvis der er gemt data
+- "Ny analyse" rydder det gemte resultat og starter forfra
+
 ### AI Chat-widget
 - Flydende chat-knap i hjørnet af dashboardet
 - Stiller spørgsmål til Claude om eget forbrug på dansk

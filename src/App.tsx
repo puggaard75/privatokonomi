@@ -62,6 +62,7 @@ export default function App() {
   const [activeMonth, setActiveMonth] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [isCategorizing, setIsCategorizing] = useState(false);
   const [categoryModal, setCategoryModal] = useState<string | null>(null);
   const [modalSort, setModalSort] = useState<'date' | 'amount' | 'store'>('amount');
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -188,85 +189,109 @@ export default function App() {
     }
   };
 
+  const claudeFetch = async (prompt: string, maxTokens: number) => {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`AI Analyse fejlede: ${errorData.error?.message || response.statusText}`);
+    }
+    const data = await response.json();
+    const rawText = data.content[0].text;
+    const jsonStart = rawText.indexOf('{');
+    const jsonEnd = rawText.lastIndexOf('}');
+    if (jsonStart === -1 || jsonEnd === -1) throw new Error('AI returnerede ikke gyldig JSON-data. Prøv igen.');
+    try {
+      return JSON.parse(rawText.substring(jsonStart, jsonEnd + 1));
+    } catch {
+      throw new Error('Kunne ikke læse data fra AI. Svaret var formateret forkert.');
+    }
+  };
+
   const analyzeWithAI = async (transactions: Transaction[], fname: string) => {
     setLoadingText('Analyserer mønstre med AI...');
-    
-    // Simplified analysis for demo purposes, in a real app we'd batch this to Anthropic
-    // For this React port, I'll implement the logic flow from the original HTML
-    
+
     try {
       const txLines = transactions.map((t, i) => `${i}|${t.date}|${t.description}|${Math.round(t.amount)}`).join('\n');
 
-      const prompt = `Analyser disse banktransaktioner og returner JSON med kategorier, faste udgifter, top butikker og råd.
+      const statsPrompt = `Analyser disse banktransaktioner og returner JSON med aggregerede data.
       Transaktioner:
       ${txLines}
-      
-      Returner KUN JSON i dette format:
+
+      Returner KUN JSON i dette format (ingen txCategories):
       {
         "categories": [{"name": "Navn", "amount": 123}],
         "fixedExpenses": [{"name": "Navn", "amount": 123, "frequency": "Månedlig"}],
         "topStores": [{"name": "Navn", "amount": 123, "count": 5}],
         "advice": [{"text": "Råd", "category": "Kategori", "keywords": ["ord"]}],
         "summary": "Tekst",
-        "monthlyTrend": [{"month": "2024-01", "income": 100, "expenses": 80}],
-        "txCategories": {"0": "Kategori"}
+        "monthlyTrend": [{"month": "2024-01", "income": 100, "expenses": 80}]
       }`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 8000,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
+      const txCatPrompt = `Kategoriser disse banktransaktioner.
+      Transaktioner:
+      ${txLines}
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`AI Analyse fejlede: ${errorData.error?.message || response.statusText}`);
-      }
-      
-      const data = await response.json();
-      const rawText = data.content[0].text;
-      
-      // Robust JSON extraction: find the first '{' and last '}'
-      const jsonStart = rawText.indexOf('{');
-      const jsonEnd = rawText.lastIndexOf('}');
-      
-      if (jsonStart === -1 || jsonEnd === -1) {
-        throw new Error('AI returnerede ikke gyldig JSON-data. Prøv igen.');
-      }
-      
-      const rawJson = rawText.substring(jsonStart, jsonEnd + 1);
-      let stats;
-      try {
-        stats = JSON.parse(rawJson);
-      } catch (e) {
-        console.error('JSON Parse fejl:', rawJson);
-        throw new Error('Kunne ikke læse data fra AI. Svaret var formateret forkert.');
+      Returner KUN JSON i dette format:
+      {
+        "txCategories": {"0": "Dagligvarer", "1": "Transport"}
       }
 
-      const finalResult: AnalysisResult = {
+      Brug disse kategorier: Bolig, Dagligvarer, Spisesteder & Café, Transport, Shopping, Vin & Delikatesser, MobilePay & Overførsler til personer, Abonnementer & Medier, Sport & Fitness, Sundhed, Andet`;
+
+      // Start begge kald parallelt
+      const statsPromise = claudeFetch(statsPrompt, 4000);
+      const txCatPromise = claudeFetch(txCatPrompt, 4000);
+
+      // Vis dashboard så snart aggregerede data er klar
+      const stats = await statsPromise;
+      const initialResult: AnalysisResult = {
         ...stats,
+        txCategories: {},
         _allTx: transactions,
         _fname: fname,
         _catColors: {}
       };
-
-      // Assign colors
       stats.categories.forEach((c: any, i: number) => {
-        finalResult._catColors[c.name] = COLOR_PALETTE[i % COLOR_PALETTE.length];
+        initialResult._catColors[c.name] = COLOR_PALETTE[i % COLOR_PALETTE.length];
       });
 
-      localStorage.setItem('oekonomi_result', JSON.stringify(finalResult));
-      setResult(finalResult);
+      setResult(initialResult);
       setScreen('dashboard');
+      setIsCategorizing(true);
+
+      // Opdater med txCategories når det er klar
+      txCatPromise
+        .then(txData => {
+          setResult(prev => {
+            if (!prev) return prev;
+            const updated = { ...prev, txCategories: txData.txCategories || {} };
+            localStorage.setItem('oekonomi_result', JSON.stringify(updated));
+            return updated;
+          });
+        })
+        .catch(() => {
+          // txCategories fejlede — dashboardet virker stadig, blot uden grupperinger
+          setResult(prev => {
+            if (!prev) return prev;
+            localStorage.setItem('oekonomi_result', JSON.stringify(prev));
+            return prev;
+          });
+        })
+        .finally(() => setIsCategorizing(false));
+
     } catch (err: any) {
       setError(err.message);
       setScreen('upload');
@@ -462,7 +487,13 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === 'transactions' && (() => {
+      {activeTab === 'transactions' && isCategorizing && (
+        <div className="flex items-center gap-3 text-muted text-sm p-6 card">
+          <div className="spinner" style={{ width: 16, height: 16 }} /> Kategoriserer posteringer...
+        </div>
+      )}
+
+      {activeTab === 'transactions' && !isCategorizing && (() => {
         type GroupEntry = { transactions: (Transaction & { idx: number })[]; total: number };
         const grouped = result._allTx.reduce((acc, tx, i) => {
           const cat = result.txCategories[i] || 'Andet';

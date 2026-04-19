@@ -16,10 +16,12 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 - BOM-stripping for UTF-8 filer fra danske banker
 
 ### AI-analyse (Claude)
+- To parallelle API-kald for hurtigere dashboard:
+  - Kald 1 (aggregeret): kategorier, råd, top-butikker, trend — viser dashboard med det samme
+  - Kald 2 (kategorisering): txCategories — opdaterer transaktions-gruppering i baggrunden
+- Transaktions-tab viser spinner mens kald 2 stadig kører
 - Sender alle transaktioner til Claude (claude-sonnet-4-5)
-- Kategoriserer transaktioner i grupper (Dagligvarer, Transport, Bolig osv.)
 - Identificerer faste udgifter og abonnementer
-- Finder top-butikker/forretninger efter beløb
 - Genererer personlige økonomiråd
 - Laver månedlig trend-oversigt
 - API-nøgle indtastes af brugeren og gemmes i `localStorage`

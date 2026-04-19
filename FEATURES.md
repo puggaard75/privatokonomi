@@ -26,6 +26,9 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 - Laver månedlig trend-oversigt
 - API-nøgle indtastes af brugeren og gemmes i `localStorage`
 
+### Dashboard — Header
+- Viser filnavn og datointerval (første til sidste postering) under titlen
+
 ### Dashboard — Oversigt
 - KPI-kort: Indkomst, Forbrug, Balance, Opsparingsrate
 - Doughnut-chart over kategorifordeling — klikbart

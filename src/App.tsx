@@ -374,6 +374,13 @@ export default function App() {
   const expenses = Math.abs(result._allTx.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0));
   const balance = income - expenses;
 
+  const dates = result._allTx.map(t => t.date).filter(Boolean).sort();
+  const fmtDate = (iso: string) => {
+    const [y, m, d] = iso.split('-');
+    return `${parseInt(d)}. ${['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][parseInt(m)-1]} ${y}`;
+  };
+  const dateRange = dates.length >= 2 ? `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}` : null;
+
   const donutData = {
     labels: result.categories.map(c => c.name),
     datasets: [{
@@ -389,7 +396,7 @@ export default function App() {
       <header className="flex items-center justify-between mb-8 flex-wrap gap-4">
         <div>
           <h1 className="text-xl font-bold">Økonomi Dashboard</h1>
-          <p className="text-xs text-muted mt-1">{result._fname}</p>
+          <p className="text-xs text-muted mt-1">{result._fname}{dateRange && <span className="ml-2 text-muted2">· {dateRange}</span>}</p>
         </div>
         <div className="flex gap-2">
           <button className="tb-btn flex items-center gap-2" onClick={() => window.print()}>

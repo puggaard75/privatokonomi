@@ -512,7 +512,7 @@ export default function App() {
       {activeTab === 'transactions' && !isCategorizing && (() => {
         type GroupEntry = { transactions: (Transaction & { idx: number })[]; total: number };
         const grouped = result._allTx.reduce((acc, tx, i) => {
-          const cat = result.txCategories[i] || 'Andet';
+          const cat = result.txCategories?.[i] || 'Andet';
           if (!acc[cat]) acc[cat] = { transactions: [], total: 0 };
           acc[cat].transactions.push({ ...tx, idx: i });
           acc[cat].total += tx.amount;
@@ -596,7 +596,7 @@ export default function App() {
         const color = result._catColors[categoryModal] || '#64748b';
         const catTx = result._allTx
           .map((t, i) => ({ ...t, idx: i }))
-          .filter((_, i) => (result.txCategories[i] || 'Andet') === categoryModal && result._allTx[i].amount < 0);
+          .filter((_, i) => (result.txCategories?.[i] || 'Andet') === categoryModal && result._allTx[i].amount < 0);
 
         const sorted = [...catTx].sort((a, b) => {
           if (modalSort === 'date') return b.date.localeCompare(a.date);

@@ -15,6 +15,13 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 - Håndterer danske beløbsformater med punktum/komma
 - BOM-stripping for UTF-8 filer fra danske banker
 
+### Lokal kategorisering med læring
+- Bygget-in regelbase for kendte danske butikker (REMA1000, Netto, DSB, Spotify m.fl.)
+- Lærte mappings gemmes i `localStorage` (`oekonomi_learned_cats`) efter hver AI-analyse
+- Ved næste analyse kategoriseres kendte posteringer øjeblikkeligt lokalt — ingen AI-kald nødvendigt
+- Kun ukendte transaktioner sendes til AI, reducerer token-forbrug over tid
+- Kategorimodal viser korrekt data, da lokale og AI-kategorier bruger samme faste navneliste
+
 ### AI-analyse (Claude)
 - To parallelle API-kald for hurtigere dashboard:
   - Kald 1 (aggregeret): kategorier, råd, top-butikker, trend — viser dashboard med det samme
@@ -63,6 +70,15 @@ En single-page applikation (SPA) til personlig økonomianalyse. Brugeren uploade
 ## Planlagt funktionalitet
 
 _(Tilføj kommende features her)_
+
+---
+
+## Deployment
+
+- Hostet på **GitHub Pages** via `https://puggaard75.github.io/privatokonomi/`
+- GitHub Actions-workflow (`.github/workflows/deploy.yml`) bygger med Vite og deployer `dist/`-mappen automatisk ved push til `main`
+- Pages-kilden skal være sat til **"GitHub Actions"** i repo-indstillingerne (ikke "Deploy from a branch") — ellers serveres den rå `index.html` uden kompileret kode
+- Workflow kan også køres manuelt under Actions → "Deploy static content to Pages" → "Run workflow"
 
 ---
 

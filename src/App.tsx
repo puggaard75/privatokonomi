@@ -53,6 +53,51 @@ const CAT_COLORS: Record<string, string> = {
 
 const COLOR_PALETTE = ['#f59e0b', '#22c55e', '#f97316', '#3b82f6', '#ec4899', '#a855f7', '#06b6d4', '#6366f1', '#10b981', '#ef4444', '#14b8a6', '#8b5cf6', '#e11d48', '#0ea5e9', '#84cc16', '#d946ef'];
 
+const CATEGORIES_LIST = [
+  'Bolig', 'Dagligvarer', 'Spisesteder & Café', 'Transport', 'Shopping',
+  'Vin & Delikatesser', 'MobilePay & Overførsler til personer', 'Abonnementer & Medier',
+  'Sport & Fitness', 'Sundhed', 'Andet',
+] as const;
+
+const CATEGORIES_STR = CATEGORIES_LIST.join(', ');
+
+const BUILT_IN_RULES: [string, string][] = [
+  ['REMA', 'Dagligvarer'], ['NETTO', 'Dagligvarer'], ['SUPERBRUGSEN', 'Dagligvarer'],
+  ['KVICKLY', 'Dagligvarer'], ['ALDI', 'Dagligvarer'], ['LIDL', 'Dagligvarer'],
+  ['MENY', 'Dagligvarer'], ['FAKTA', 'Dagligvarer'], ['IRMA', 'Dagligvarer'],
+  ['BILKA', 'Dagligvarer'], ['COOP', 'Dagligvarer'],
+  ['DSB', 'Transport'], ['ARRIVA', 'Transport'], ['SHELL', 'Transport'],
+  ['CIRCLE K', 'Transport'], ['Q8', 'Transport'], ['OK BENZIN', 'Transport'],
+  ['MOVIA', 'Transport'], ['FLIXBUS', 'Transport'], ['UBER', 'Transport'],
+  ['TAXA', 'Transport'], ['PARKERING', 'Transport'],
+  ['SPOTIFY', 'Abonnementer & Medier'], ['NETFLIX', 'Abonnementer & Medier'],
+  ['HBO', 'Abonnementer & Medier'], ['DISNEY', 'Abonnementer & Medier'],
+  ['APPLE.COM/BILL', 'Abonnementer & Medier'], ['VIAPLAY', 'Abonnementer & Medier'],
+  ['TV2 PLAY', 'Abonnementer & Medier'], ['GOOGLE ONE', 'Abonnementer & Medier'],
+  ['MCDONALDS', 'Spisesteder & Café'], ['MCDONALD', 'Spisesteder & Café'],
+  ['BURGER KING', 'Spisesteder & Café'], ['BURGER BOOM', 'Spisesteder & Café'],
+  ['STARBUCKS', 'Spisesteder & Café'], ['7-ELEVEN', 'Spisesteder & Café'],
+  ['APOTEK', 'Sundhed'],
+  ['FITNESS', 'Sport & Fitness'], ['GYM', 'Sport & Fitness'],
+];
+
+const loadLearnedRules = (): Record<string, string> => {
+  try { return JSON.parse(localStorage.getItem('oekonomi_learned_cats') || '{}'); }
+  catch { return {}; }
+};
+
+const saveLearnedRules = (rules: Record<string, string>) =>
+  localStorage.setItem('oekonomi_learned_cats', JSON.stringify(rules));
+
+const classifyLocally = (description: string, learned: Record<string, string>): string | null => {
+  if (learned[description]) return learned[description];
+  const upper = description.toUpperCase();
+  for (const [keyword, cat] of BUILT_IN_RULES) {
+    if (upper.includes(keyword)) return cat;
+  }
+  return null;
+};
+
 export default function App() {
   const [apiKey, setApiKey] = useState(localStorage.getItem('oekonomi_apikey') || '');
   const [screen, setScreen] = useState<'upload' | 'loading' | 'dashboard'>('upload');
@@ -64,10 +109,12 @@ export default function App() {
   const [isCategorizing, setIsCategorizing] = useState(false);
   const [categoryModal, setCategoryModal] = useState<string | null>(null);
   const [modalSort, setModalSort] = useState<'date' | 'amount' | 'store'>('amount');
+  const [storeSort, setStoreSort] = useState<'amount' | 'count'>('amount');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [isThinking, setIsThinking] = useState(false);
+  const [txSearch, setTxSearch] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const donutRef = useRef<any>(null);
@@ -224,11 +271,24 @@ export default function App() {
     setLoadingText('Analyserer mønstre med AI...');
 
     try {
+      // Pre-kategoriser lokalt med kendte regler + tidligere lærte mappings
+      const learnedRules = loadLearnedRules();
+      const preCategorized: Record<number, string> = {};
+      const needsAI: number[] = [];
+
+      transactions.forEach((t, i) => {
+        const cat = classifyLocally(t.description, learnedRules);
+        if (cat) preCategorized[i] = cat;
+        else needsAI.push(i);
+      });
+
       const txLines = transactions.map((t, i) => `${i}|${t.date}|${t.description}|${Math.round(t.amount)}`).join('\n');
 
       const statsPrompt = `Analyser disse banktransaktioner og returner JSON med aggregerede data.
       Transaktioner:
       ${txLines}
+
+      Brug disse kategorier (præcis stavning): ${CATEGORIES_STR}
 
       Returner KUN JSON i dette format (ingen txCategories):
       {
@@ -240,26 +300,33 @@ export default function App() {
         "monthlyTrend": [{"month": "2024-01", "income": 100, "expenses": 80}]
       }`;
 
+      // Kun send ukendte transaktioner til AI
+      const aiTxLines = needsAI
+        .map(i => `${i}|${transactions[i].date}|${transactions[i].description}|${Math.round(transactions[i].amount)}`)
+        .join('\n');
+
       const txCatPrompt = `Kategoriser disse banktransaktioner.
       Transaktioner:
-      ${txLines}
+      ${aiTxLines}
 
-      Returner KUN JSON i dette format:
+      Returner KUN JSON i dette format (brug de originale indeksnumre):
       {
         "txCategories": {"0": "Dagligvarer", "1": "Transport"}
       }
 
-      Brug disse kategorier: Bolig, Dagligvarer, Spisesteder & Café, Transport, Shopping, Vin & Delikatesser, MobilePay & Overførsler til personer, Abonnementer & Medier, Sport & Fitness, Sundhed, Andet`;
+      Brug disse kategorier (præcis stavning): ${CATEGORIES_STR}`;
 
-      // Start begge kald parallelt
+      // Start begge kald parallelt (spring txCat over hvis alt er kategoriseret lokalt)
       const statsPromise = claudeFetch(statsPrompt, 4000);
-      const txCatPromise = claudeFetch(txCatPrompt, 4000);
+      const txCatPromise = needsAI.length > 0
+        ? claudeFetch(txCatPrompt, 4000)
+        : Promise.resolve({ txCategories: {} });
 
       // Vis dashboard så snart aggregerede data er klar
       const stats = await statsPromise;
       const initialResult: AnalysisResult = {
         ...stats,
-        txCategories: {},
+        txCategories: preCategorized,
         _allTx: transactions,
         _fname: fname,
         _catColors: {}
@@ -270,20 +337,30 @@ export default function App() {
 
       setResult(initialResult);
       setScreen('dashboard');
-      setIsCategorizing(true);
+      setIsCategorizing(needsAI.length > 0);
 
-      // Opdater med txCategories når det er klar
+      // Opdater med AI-kategorier og gem nye mappings til fremtidige analyser
       txCatPromise
         .then(txData => {
+          const newLearned = { ...learnedRules };
+          const combined = { ...preCategorized };
+
+          for (const [idxStr, cat] of Object.entries(txData.txCategories || {})) {
+            const i = Number(idxStr);
+            combined[i] = cat as string;
+            newLearned[transactions[i].description] = cat as string;
+          }
+
+          saveLearnedRules(newLearned);
+
           setResult(prev => {
             if (!prev) return prev;
-            const updated = { ...prev, txCategories: txData.txCategories || {} };
+            const updated = { ...prev, txCategories: combined };
             localStorage.setItem('oekonomi_result', JSON.stringify(updated));
             return updated;
           });
         })
         .catch(() => {
-          // txCategories fejlede — dashboardet virker stadig, blot uden grupperinger
           setResult(prev => {
             if (!prev) return prev;
             localStorage.setItem('oekonomi_result', JSON.stringify(prev));
@@ -489,9 +566,23 @@ export default function App() {
           </div>
 
           <div className="card">
-            <h3 className="text-sm font-bold mb-4">Top Butikker</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold">Top Butikker</h3>
+              <div className="flex gap-1">
+                {(['amount', 'count'] as const).map(s => (
+                  <button key={s} onClick={() => setStoreSort(s)}
+                    className={cn("text-[10px] px-2 py-0.5 rounded-full border transition-colors",
+                      storeSort === s ? "border-accent text-accent bg-accent/10" : "border-border text-muted")}>
+                    {s === 'amount' ? 'Beløb' : 'Antal køb'}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex flex-col gap-3">
-              {result.topStores.slice(0, 8).map((s, i) => (
+              {[...result.topStores]
+                .sort((a, b) => storeSort === 'amount' ? b.amount - a.amount : b.count - a.count)
+                .slice(0, 8)
+                .map((s, i) => (
                 <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div className="text-xs">
                     <div className="font-medium">{s.name}</div>
@@ -512,8 +603,10 @@ export default function App() {
       )}
 
       {activeTab === 'transactions' && !isCategorizing && (() => {
+        const searchLower = txSearch.toLowerCase();
         type GroupEntry = { transactions: (Transaction & { idx: number })[]; total: number };
         const grouped = result._allTx.reduce((acc, tx, i) => {
+          if (searchLower && !tx.description.toLowerCase().includes(searchLower)) return acc;
           const cat = result.txCategories?.[i] || 'Andet';
           if (!acc[cat]) acc[cat] = { transactions: [], total: 0 };
           acc[cat].transactions.push({ ...tx, idx: i });
@@ -529,18 +622,36 @@ export default function App() {
           });
         };
 
+        const entries = (Object.entries(grouped) as [string, GroupEntry][])
+          .sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total));
+
         return (
           <div className="flex flex-col gap-2">
-            {(Object.entries(grouped) as [string, GroupEntry][])
-              .sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total))
-              .map(([cat, group]) => {
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Søg i posteringer..."
+                value={txSearch}
+                onChange={e => setTxSearch(e.target.value)}
+                className="w-full bg-bg2 border border-border2 rounded-r2 px-3 py-2 text-sm outline-none focus:border-accent placeholder:text-muted2"
+              />
+              {txSearch && (
+                <button onClick={() => setTxSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-text">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            {entries.length === 0 && (
+              <div className="text-sm text-muted text-center py-8">Ingen posteringer matcher "{txSearch}"</div>
+            )}
+            {entries.map(([cat, group]) => {
                 const color = result._catColors[cat] || '#64748b';
-                const isOpen = expandedCategories.has(cat);
+                const isOpen = searchLower ? true : expandedCategories.has(cat);
                 return (
                   <div key={cat} className="card p-0 overflow-hidden">
                     <button
                       className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
-                      onClick={() => toggleCategory(cat)}
+                      onClick={() => !searchLower && toggleCategory(cat)}
                     >
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
                       <span className="flex-1 text-sm font-medium">{cat}</span>
@@ -548,7 +659,7 @@ export default function App() {
                       <span className={cn("text-sm font-bold ml-4", group.total >= 0 ? "text-green" : "text-red")}>
                         {group.total >= 0 ? '+' : ''}{fmtKr(group.total)}
                       </span>
-                      <ChevronRight size={14} className={cn("text-muted transition-transform ml-2", isOpen && "rotate-90")} />
+                      {!searchLower && <ChevronRight size={14} className={cn("text-muted transition-transform ml-2", isOpen && "rotate-90")} />}
                     </button>
                     {isOpen && (
                       <div className="border-t border-border">

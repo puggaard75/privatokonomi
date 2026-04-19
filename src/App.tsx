@@ -61,6 +61,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'transactions' | 'advice'>('overview');
   const [activeMonth, setActiveMonth] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'ai'; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -180,8 +181,7 @@ export default function App() {
     // For this React port, I'll implement the logic flow from the original HTML
     
     try {
-      const sample = transactions.slice(0, 100);
-      const txLines = sample.map((t, i) => `${i}|${t.date}|${t.description}|${Math.round(t.amount)}`).join('\n');
+      const txLines = transactions.map((t, i) => `${i}|${t.date}|${t.description}|${Math.round(t.amount)}`).join('\n');
 
       const prompt = `Analyser disse banktransaktioner og returner JSON med kategorier, faste udgifter, top butikker og råd.
       Transaktioner:
@@ -208,7 +208,7 @@ export default function App() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-5',
-          max_tokens: 4000,
+          max_tokens: 8000,
           messages: [{ role: 'user', content: prompt }]
         })
       });
@@ -423,39 +423,68 @@ export default function App() {
         </div>
       )}
 
-      {activeTab === 'transactions' && (
-        <div className="card overflow-x-auto">
-          <table className="tx-table">
-            <thead>
-              <tr>
-                <th>Dato</th>
-                <th>Beskrivelse</th>
-                <th>Kategori</th>
-                <th className="text-right">Beløb</th>
-              </tr>
-            </thead>
-            <tbody>
-              {result._allTx.slice(0, 100).map((t, i) => (
-                <tr key={i}>
-                  <td className="text-muted whitespace-nowrap">{t.date}</td>
-                  <td>{t.description}</td>
-                  <td>
-                    <span 
-                      className="text-[10px] px-2 py-0.5 rounded-full"
-                      style={{ background: (result._catColors[result.txCategories[i]] || '#64748b') + '22', color: result._catColors[result.txCategories[i]] || '#64748b' }}
+      {activeTab === 'transactions' && (() => {
+        type GroupEntry = { transactions: (Transaction & { idx: number })[]; total: number };
+        const grouped = result._allTx.reduce((acc, tx, i) => {
+          const cat = result.txCategories[i] || 'Andet';
+          if (!acc[cat]) acc[cat] = { transactions: [], total: 0 };
+          acc[cat].transactions.push({ ...tx, idx: i });
+          acc[cat].total += tx.amount;
+          return acc;
+        }, {} as Record<string, GroupEntry>);
+
+        const toggleCategory = (cat: string) => {
+          setExpandedCategories(prev => {
+            const next = new Set(prev);
+            next.has(cat) ? next.delete(cat) : next.add(cat);
+            return next;
+          });
+        };
+
+        return (
+          <div className="flex flex-col gap-2">
+            {(Object.entries(grouped) as [string, GroupEntry][])
+              .sort((a, b) => Math.abs(b[1].total) - Math.abs(a[1].total))
+              .map(([cat, group]) => {
+                const color = result._catColors[cat] || '#64748b';
+                const isOpen = expandedCategories.has(cat);
+                return (
+                  <div key={cat} className="card p-0 overflow-hidden">
+                    <button
+                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors"
+                      onClick={() => toggleCategory(cat)}
                     >
-                      {result.txCategories[i] || 'Andet'}
-                    </span>
-                  </td>
-                  <td className={cn("text-right font-bold", t.amount >= 0 ? "text-green" : "text-red")}>
-                    {t.amount >= 0 ? '+' : ''}{fmtKr(t.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                      <span className="flex-1 text-sm font-medium">{cat}</span>
+                      <span className="text-xs text-muted">{group.transactions.length} posteringer</span>
+                      <span className={cn("text-sm font-bold ml-4", group.total >= 0 ? "text-green" : "text-red")}>
+                        {group.total >= 0 ? '+' : ''}{fmtKr(group.total)}
+                      </span>
+                      <ChevronRight size={14} className={cn("text-muted transition-transform ml-2", isOpen && "rotate-90")} />
+                    </button>
+                    {isOpen && (
+                      <div className="border-t border-border">
+                        <table className="tx-table">
+                          <tbody>
+                            {group.transactions.map((t) => (
+                              <tr key={t.idx}>
+                                <td className="text-muted whitespace-nowrap">{t.date}</td>
+                                <td>{t.description}</td>
+                                <td className={cn("text-right font-bold", t.amount >= 0 ? "text-green" : "text-red")}>
+                                  {t.amount >= 0 ? '+' : ''}{fmtKr(t.amount)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        );
+      })()}
 
       {activeTab === 'advice' && (
         <div className="flex flex-col gap-6">

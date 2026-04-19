@@ -59,7 +59,6 @@ export default function App() {
   const [loadingText, setLoadingText] = useState('');
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'transactions' | 'advice'>('overview');
-  const [activeMonth, setActiveMonth] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isCategorizing, setIsCategorizing] = useState(false);
@@ -343,7 +342,7 @@ export default function App() {
             className="tb-btn primary w-full py-3 flex items-center justify-center gap-2"
             onClick={() => {
               const saved = localStorage.getItem('oekonomi_result');
-              if (saved) { setResult(JSON.parse(saved)); setScreen('dashboard'); }
+              if (saved) { try { setResult(JSON.parse(saved)); setScreen('dashboard'); } catch { localStorage.removeItem('oekonomi_result'); } }
             }}
           >
             <ChevronRight size={14} /> Fortsæt med seneste analyse
@@ -376,8 +375,11 @@ export default function App() {
 
   const dates = result._allTx.map(t => t.date).filter(Boolean).sort();
   const fmtDate = (iso: string) => {
-    const [y, m, d] = iso.split('-');
-    return `${parseInt(d)}. ${['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][parseInt(m)-1]} ${y}`;
+    const parts = iso.split('-');
+    if (parts.length !== 3) return iso;
+    const [y, m, d] = parts;
+    const month = ['jan','feb','mar','apr','maj','jun','jul','aug','sep','okt','nov','dec'][parseInt(m)-1];
+    return `${parseInt(d)}. ${month ?? m} ${y}`;
   };
   const dateRange = dates.length >= 2 ? `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length - 1])}` : null;
 
@@ -402,7 +404,7 @@ export default function App() {
           <button className="tb-btn flex items-center gap-2" onClick={() => window.print()}>
             <Download size={14} /> PDF
           </button>
-          <button className="tb-btn primary" onClick={() => { localStorage.removeItem('oekonomi_result'); setResult(null); setScreen('upload'); }}>
+          <button className="tb-btn primary" onClick={() => { localStorage.removeItem('oekonomi_result'); setResult(null); setScreen('upload'); setActiveTab('overview'); setExpandedCategories(new Set()); setCategoryModal(null); setChatMessages([]); setIsChatOpen(false); }}>
             <RefreshCw size={14} /> Ny analyse
           </button>
         </div>
@@ -694,7 +696,7 @@ export default function App() {
             ))}
             {isThinking && <div className="text-[10px] text-muted italic">Tænker...</div>}
           </div>
-          <div className="p-3 border-top border-border flex gap-2">
+          <div className="p-3 border-t border-border flex gap-2">
             <input 
               className="flex-1 bg-bg3 border border-border rounded-full px-3 py-1.5 text-xs outline-none focus:border-accent"
               placeholder="Skriv her..."
